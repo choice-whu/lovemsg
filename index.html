@@ -46,7 +46,7 @@
         <details id="memoryControls" class="control-drawer">
           <summary class="control-summary">
             <span>查找与设置</span>
-            <small>搜索、日期、称呼都在这里</small>
+            <small>搜索、日期和类型都在这里</small>
           </summary>
 
           <aside class="sidebar" aria-label="筛选和状态">
@@ -111,13 +111,10 @@
               <div id="activeFilterNote" class="filter-note" aria-live="polite"></div>
             </section>
 
-            <section class="panel names-panel">
-              <h2>称呼</h2>
-              <label class="field-label" for="mineNameInput">我</label>
-              <input id="mineNameInput" class="text-input" type="text" value="我" />
-              <label class="field-label" for="partnerNameInput">对方</label>
-              <input id="partnerNameInput" class="text-input" type="text" value="乖乖" />
-            </section>
+            <div class="identity-fields" hidden>
+              <input id="mineNameInput" type="hidden" value="我" />
+              <input id="partnerNameInput" type="hidden" value="乖乖" />
+            </div>
           </aside>
         </details>
 

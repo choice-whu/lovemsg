@@ -49,6 +49,13 @@ const WORD_STOP_LIST = new Set([
   "今天",
   "明天",
   "昨天",
+  "现在",
+  "这么",
+  "这个",
+  "那个",
+  "时候",
+  "然后",
+  "觉得",
   "哈哈",
   "哈哈哈",
   "微信",
@@ -290,7 +297,7 @@ function showStaticUnlockPanel(message = "") {
     <p>聊天记录和照片都已加密放在 GitHub Pages 上，密码只在这个浏览器里用来解锁。</p>
     <label class="field-label" for="staticUserSelect">视角</label>
     <select id="staticUserSelect" class="text-input" ${users.length ? "" : "disabled"}>
-      ${users.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.displayName || user.id)}</option>`).join("")}
+      ${users.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(getStaticUserOptionLabel(user))}</option>`).join("")}
     </select>
     <label class="field-label" for="staticPasswordInput">密码</label>
     <input id="staticPasswordInput" class="text-input" type="password" autocomplete="current-password" ${users.length ? "" : "disabled"} />
@@ -299,6 +306,10 @@ function showStaticUnlockPanel(message = "") {
   `;
   form.addEventListener("submit", unlockStaticExport);
   els.timelineList.replaceChildren(form);
+}
+
+function getStaticUserOptionLabel(user) {
+  return user.perspective === "partner" ? "乖乖视角" : "我的视角";
 }
 
 async function unlockStaticExport(event) {
@@ -672,11 +683,7 @@ async function restoreLocalState() {
   ]);
   const records = snapshot && Array.isArray(snapshot.records) ? snapshot.records : await getAllFromStore("records");
 
-  if (names) {
-    els.mineNameInput.value = names.mine || "我";
-    els.partnerNameInput.value = names.partner || "乖乖";
-    els.noteAuthorInput.value = names.mine || "我";
-  }
+  applyFixedIdentity("我", "乖乖");
 
   state.favorites = new Set(favorites.map((item) => item.key));
   state.notes = notes.sort((a, b) => b.createdAt - a.createdAt);
@@ -707,7 +714,7 @@ async function handleCsvChange(event) {
     const parsedRows = parseCsv(text);
     const records = normalizeRows(parsedRows);
     setRecords(records);
-    inferPartnerName(records);
+    applyFixedIdentity("我", "乖乖");
     els.csvStatus.textContent = `${file.name}，${formatNumber(records.length)} 条消息`;
     applyFilters();
     switchTab("timeline");
@@ -1038,23 +1045,31 @@ function clearAssets() {
 }
 
 function applyFilters() {
-  const query = els.searchInput.value.trim().toLowerCase();
-  const terms = query.split(/\s+/).filter(Boolean);
+  const terms = getSearchTerms();
   const day = els.dateInput.value;
   const selectedType = els.typeSelect.value;
 
   state.filtered = state.records.filter((record) => {
-    if (terms.length && !terms.every((term) => record.searchText.includes(term))) return false;
+    if (terms.length && !recordContainsTerms(record, terms)) return false;
     if (day && record.dayKey !== day) return false;
     if (state.monthDayFilter && record.monthDay !== state.monthDayFilter) return false;
     if (selectedType !== "all" && record.type !== selectedType) return false;
     return true;
   });
 
-  resetTimelineWindow();
-  state.timelineStickBottom = true;
+  resetTimelineWindow(terms.length ? 0 : getRenderableFilteredRecords().length - 1);
+  state.timelineStickBottom = !terms.length;
   updateFilterNote();
   renderAll();
+}
+
+function getSearchTerms() {
+  return els.searchInput.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function recordContainsTerms(record, terms) {
+  const text = `${cleanText(record.text)} ${getSenderName(record)} ${TYPE_LABELS[record.type] || record.type || ""}`.toLowerCase();
+  return terms.every((term) => text.includes(term));
 }
 
 function updateFilterNote() {
@@ -1062,12 +1077,12 @@ function updateFilterNote() {
   if (state.monthDayFilter) notes.push(`今日历史 ${state.monthDayFilter}`);
   if (els.dateInput.value) notes.push(els.dateInput.value);
   if (els.typeSelect.value !== "all") notes.push(TYPE_LABELS[els.typeSelect.value] || els.typeSelect.value);
-  if (els.searchInput.value.trim()) notes.push("正在找这一句");
+  if (els.searchInput.value.trim()) notes.push(`列出 ${formatNumber(getRenderableFilteredRecords().length)} 条关键词结果`);
   els.activeFilterNote.textContent = notes.join(" · ");
 }
 
 function resetTimelineWindow(anchorIndex = state.filtered.length - 1) {
-  const total = state.filtered.length;
+  const total = getRenderableFilteredRecords().length;
   if (!total) {
     state.currentStart = 0;
     state.currentEnd = 0;
@@ -1088,10 +1103,11 @@ function showTodayHistory() {
 }
 
 function jumpToRandomMoment() {
-  if (!state.filtered.length) return;
-  const randomIndex = Math.floor(Math.random() * state.filtered.length);
-  state.currentStart = clamp(randomIndex - Math.floor(state.pageSize / 2), 0, Math.max(0, state.filtered.length - state.pageSize));
-  state.currentEnd = Math.min(state.filtered.length, Math.max(state.currentStart + state.pageSize, randomIndex + 1));
+  const records = getRenderableFilteredRecords();
+  if (!records.length) return;
+  const randomIndex = Math.floor(Math.random() * records.length);
+  state.currentStart = clamp(randomIndex - Math.floor(state.pageSize / 2), 0, Math.max(0, records.length - state.pageSize));
+  state.currentEnd = Math.min(records.length, Math.max(state.currentStart + state.pageSize, randomIndex + 1));
   state.timelineStickBottom = false;
   switchTab("timeline");
   renderTimeline();
@@ -1156,13 +1172,19 @@ function renderTimeline() {
     return;
   }
 
-  if (!state.filtered.length) {
+  const records = getRenderableFilteredRecords();
+  if (!records.length) {
     setTimelineEmpty("没有匹配结果", "换个关键词、日期或消息类型试试。");
     updatePager();
     return;
   }
 
-  const total = state.filtered.length;
+  if (isSearchMode()) {
+    renderSearchResults(records);
+    return;
+  }
+
+  const total = records.length;
   const start = clamp(state.currentStart, 0, Math.max(0, total - 1));
   const end = clamp(state.currentEnd || total, Math.min(start + 1, total), total);
   state.currentStart = start;
@@ -1170,7 +1192,7 @@ function renderTimeline() {
   const fragment = document.createDocumentFragment();
   let previousDay = "";
 
-  state.filtered.slice(start, end).forEach((record) => {
+  records.slice(start, end).forEach((record) => {
     if (record.dayKey && record.dayKey !== previousDay) {
       fragment.appendChild(makeDateSeparator(record.date));
       previousDay = record.dayKey;
@@ -1189,8 +1211,91 @@ function renderTimeline() {
   }
 }
 
+function getRenderableFilteredRecords() {
+  return state.filtered.filter(shouldRenderRecord);
+}
+
+function shouldRenderRecord(record) {
+  if (MEDIA_TYPES.has(record.type) && !findAssetFor(record.src)) {
+    return false;
+  }
+  return true;
+}
+
+function isSearchMode() {
+  return Boolean(els.searchInput.value.trim());
+}
+
+function renderSearchResults(records) {
+  const terms = getSearchTerms();
+  const total = records.length;
+  const start = clamp(state.currentStart, 0, Math.max(0, total - 1));
+  const end = clamp(state.currentEnd || Math.min(total, state.pageSize), Math.min(start + 1, total), total);
+  state.currentStart = start;
+  state.currentEnd = end;
+
+  const fragment = document.createDocumentFragment();
+  records.slice(start, end).forEach((record) => {
+    fragment.appendChild(makeSearchResultCard(record, terms));
+  });
+  els.timelineList.replaceChildren(fragment);
+  updatePager();
+}
+
+function makeSearchResultCard(record, terms) {
+  const card = element("article", "search-result-card");
+  card.dataset.key = record.key;
+  card.appendChild(element("div", "search-result-meta", `${formatDay(record.date)} ${formatTime(record.date)} · ${getSenderName(record)}`));
+  const snippets = getMatchingSentences(record, terms);
+  snippets.forEach((sentence) => {
+    const line = element("p", "search-result-line");
+    appendHighlightedText(line, sentence, terms);
+    card.appendChild(line);
+  });
+  return card;
+}
+
+function getMatchingSentences(record, terms) {
+  const text = cleanPreview(record.text, 600) || getRecordPreview(record, 600);
+  if (!text) return [TYPE_LABELS[record.type] || "消息"];
+  const sentences = text
+    .split(/(?<=[。！？!?；;…])|\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const matches = sentences.filter((sentence) => terms.every((term) => sentence.toLowerCase().includes(term)));
+  return (matches.length ? matches : [text]).slice(0, 4);
+}
+
+function appendHighlightedText(container, text, terms) {
+  const normalizedTerms = terms.filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!normalizedTerms.length) {
+    container.textContent = text;
+    return;
+  }
+
+  const lower = text.toLowerCase();
+  let index = 0;
+  while (index < text.length) {
+    const found = normalizedTerms
+      .map((term) => ({ term, position: lower.indexOf(term, index) }))
+      .filter((item) => item.position >= 0)
+      .sort((a, b) => a.position - b.position || b.term.length - a.term.length)[0];
+    if (!found) {
+      container.appendChild(document.createTextNode(text.slice(index)));
+      break;
+    }
+    if (found.position > index) {
+      container.appendChild(document.createTextNode(text.slice(index, found.position)));
+    }
+    const mark = element("mark", "", text.slice(found.position, found.position + found.term.length));
+    container.appendChild(mark);
+    index = found.position + found.term.length;
+  }
+}
+
 function handleTimelineScroll() {
-  if (state.activeTab !== "timeline" || !state.filtered.length) return;
+  const records = getRenderableFilteredRecords();
+  if (state.activeTab !== "timeline" || !records.length) return;
   window.clearTimeout(state.scrollTimer);
   state.scrollTimer = window.setTimeout(() => {
     const list = els.timelineList;
@@ -1204,8 +1309,8 @@ function handleTimelineScroll() {
       window.requestAnimationFrame(() => {
         list.scrollTop = Math.max(24, list.scrollHeight - previousHeight + 24);
       });
-    } else if (distanceFromBottom < 18 && state.currentEnd < state.filtered.length) {
-      state.currentEnd = Math.min(state.filtered.length, state.currentEnd + state.pageSize);
+    } else if (distanceFromBottom < 18 && state.currentEnd < records.length) {
+      state.currentEnd = Math.min(records.length, state.currentEnd + state.pageSize);
       state.timelineStickBottom = false;
       renderTimeline();
       window.requestAnimationFrame(() => {
@@ -1216,7 +1321,7 @@ function handleTimelineScroll() {
 }
 
 function updatePager() {
-  const total = state.filtered.length;
+  const total = getRenderableFilteredRecords().length;
   if (!state.records.length) {
     els.rangeInfo.textContent = "把聊天记录放进来，就能慢慢翻";
     els.scrollBottomBtn.hidden = true;
@@ -1230,13 +1335,19 @@ function updatePager() {
 
   const start = state.currentStart;
   const end = state.currentEnd || total;
+  if (isSearchMode()) {
+    const suffix = end < total ? " · 下滑继续" : "";
+    els.rangeInfo.textContent = `找到 ${formatNumber(total)} 条 · ${formatNumber(start + 1)}-${formatNumber(end)} / ${formatNumber(total)}${suffix}`;
+    return;
+  }
   const prefix = start > 0 ? "上滑看看更早 · " : "已经到最早 · ";
   const suffix = end < total ? " · 下滑继续" : " · 最新";
   els.rangeInfo.textContent = `${prefix}${formatNumber(start + 1)}-${formatNumber(end)} / ${formatNumber(total)}${suffix}`;
 }
 
 function scrollTimelineToBottom() {
-  state.currentEnd = state.filtered.length;
+  const total = getRenderableFilteredRecords().length;
+  state.currentEnd = total;
   state.currentStart = Math.max(0, state.currentEnd - state.pageSize);
   state.timelineStickBottom = true;
   renderTimeline();
@@ -1635,7 +1746,14 @@ function renderWordCloud() {
     token.type = "button";
     token.title = `${word}：${formatNumber(count)} 次`;
     const ratio = max === min ? 1 : (count - min) / (max - min);
+    const angle = index * 137.508;
+    const radius = 8 + Math.sqrt(index + 1) * 8.4;
+    const x = 50 + Math.cos((angle * Math.PI) / 180) * radius;
+    const y = 50 + Math.sin((angle * Math.PI) / 180) * radius * 0.72;
     token.style.setProperty("--word-size", `${16 + Math.round(ratio * 22)}px`);
+    token.style.setProperty("--word-x", `${clamp(x, 8, 92).toFixed(1)}%`);
+    token.style.setProperty("--word-y", `${clamp(y, 10, 90).toFixed(1)}%`);
+    token.style.setProperty("--word-rotate", `${((index % 7) - 3) * 4}deg`);
     token.addEventListener("click", () => {
       els.searchInput.value = word;
       state.monthDayFilter = "";
@@ -2058,11 +2176,7 @@ function getLongestStreak() {
 }
 
 function inferPartnerName(records) {
-  const current = els.partnerNameInput.value.trim();
-  if (current && current !== "乖乖") return;
-  const talker = records.find((record) => !record.isMine && record.talker);
-  if (talker) els.partnerNameInput.value = talker.talker;
-  saveNames();
+  applyFixedIdentity("我", "乖乖");
 }
 
 function saveNames() {
@@ -2072,6 +2186,12 @@ function saveNames() {
   };
   els.noteAuthorInput.value = names.mine;
   setMeta("names", names).catch(() => {});
+}
+
+function applyFixedIdentity(mine, partner) {
+  els.mineNameInput.value = mine || "我";
+  els.partnerNameInput.value = partner || "乖乖";
+  els.noteAuthorInput.value = els.mineNameInput.value;
 }
 
 function getSenderName(record) {
@@ -2201,10 +2321,18 @@ function firstNonEmpty(values) {
 }
 
 function tidyPlainText(value) {
-  return String(value || "")
+  const text = String(value || "")
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  return looksUnreadableText(text) ? "" : text;
+}
+
+function looksUnreadableText(text) {
+  if (!text) return false;
+  if (/[\uFFFD]/.test(text)) return true;
+  const controls = countMatches(text, /[\x00-\x08\x0B\x0C\x0E-\x1F]/g);
+  return text.length > 12 && controls / text.length > 0.08;
 }
 
 function toDateInputValue(date) {
