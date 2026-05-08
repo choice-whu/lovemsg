@@ -103,6 +103,7 @@ const state = {
   records: [],
   recordByKey: new Map(),
   filtered: [],
+  renderableFiltered: [],
   favorites: new Set(),
   notes: [],
   anniversaries: [],
@@ -118,6 +119,9 @@ const state = {
   scrollTimer: 0,
   dataVersion: 0,
   statsCache: null,
+  quickStatsCache: null,
+  quickStatsTimer: 0,
+  assetVersion: 0,
   timelineStickBottom: true,
   cloudMode: false,
   cloudUser: null,
@@ -332,7 +336,11 @@ async function unlockStaticExport(event) {
   try {
     const contentKey = await unwrapStaticContentKey(user, password);
     state.staticKey = await crypto.subtle.importKey("raw", contentKey, "AES-GCM", false, ["decrypt"]);
+    els.csvStatus.textContent = "正在整理聊天记录";
+    await nextFrame();
     const csvText = await decryptStaticText(manifest.data);
+    els.csvStatus.textContent = "正在生成聊天气泡";
+    await nextFrame();
     const records = normalizeRows(parseCsv(csvText)).map((record) => applyCloudPerspective(record, user));
     loadStaticAssets(manifest.assets || []);
     setRecords(records);
@@ -360,7 +368,7 @@ async function unlockStaticExport(event) {
 
 async function unwrapStaticContentKey(user, password) {
   const salt = base64UrlToBytes(user.kdf.salt);
-  const iterations = user.kdf.iterations || state.staticManifest.kdf?.iterations || 250000;
+  const iterations = user.kdf.iterations || state.staticManifest.kdf?.iterations || 100000;
   const passwordKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
   const wrappingKey = await crypto.subtle.deriveKey(
     { name: "PBKDF2", hash: "SHA-256", salt, iterations },
@@ -403,6 +411,7 @@ function loadStaticAssets(assets) {
   state.assetIndex.clear();
   state.assetFiles.clear();
   state.staticAssetUrls.clear();
+  invalidateAssetDerivedCaches();
 
   assets.forEach((asset) => {
     if (!asset || !asset.path) return;
@@ -494,7 +503,7 @@ async function loadCloudExport(user) {
   state.dataVersion += 1;
   await nextFrame();
 
-  const [csvResponse, assetResponse] = await Promise.all([
+    const [csvResponse, assetResponse] = await Promise.all([
     fetch("/api/export/csv", { credentials: "same-origin", cache: "no-store" }),
     fetch("/api/assets", { credentials: "same-origin", cache: "no-store" }),
   ]);
@@ -510,8 +519,10 @@ async function loadCloudExport(user) {
     throw new Error("Cloud assets could not be loaded");
   }
 
-  const csvText = await csvResponse.text();
-  const assetManifest = await assetResponse.json();
+    const csvText = await csvResponse.text();
+    els.csvStatus.textContent = "正在生成聊天气泡";
+    await nextFrame();
+    const assetManifest = await assetResponse.json();
   const records = normalizeRows(parseCsv(csvText)).map((record) => applyCloudPerspective(record, user));
   loadCloudAssets(assetManifest.assets || []);
   setRecords(records);
@@ -533,6 +544,7 @@ function loadCloudAssets(assets) {
   revokeObjectUrls();
   state.assetIndex.clear();
   state.assetFiles.clear();
+  invalidateAssetDerivedCaches();
 
   assets.forEach((asset) => {
     if (!asset || !asset.url) return;
@@ -547,6 +559,11 @@ function loadCloudAssets(assets) {
       state.assetIndex.set(normalizePath(key), cloudAsset);
     });
   });
+}
+
+function invalidateAssetDerivedCaches() {
+  state.assetVersion += 1;
+  state.quickStatsCache = null;
 }
 
 async function bootLocalDatabase() {
@@ -731,6 +748,7 @@ async function handleCsvChange(event) {
     console.error(error);
     setRecords([]);
     state.filtered = [];
+    state.renderableFiltered = [];
     els.csvStatus.textContent = "聊天记录没有读成功，请确认导出格式";
     renderAll();
   }
@@ -747,6 +765,7 @@ async function handleAssetChange(event, label) {
   const accepted = addAssetFiles(files);
   event.target.value = "";
   els.assetStatus.textContent = `素材已放好 ${formatNumber(state.assetFiles.size)} 个，本次新增 ${formatNumber(accepted)} 个`;
+  refreshRenderableRecords();
   renderAll();
 }
 
@@ -805,8 +824,27 @@ function countMatches(text, pattern) {
 function parseCsv(text) {
   const rows = [];
   let row = [];
-  let field = "";
+  let fieldStart = 0;
+  let parts = null;
   let inQuotes = false;
+  let fieldQuoted = false;
+
+  const pushField = (endIndex) => {
+    if (parts) {
+      const trailing = text.slice(fieldStart, endIndex);
+      if (trailing.trim()) parts.push(trailing);
+      row.push(parts.join(""));
+    } else {
+      row.push(text.slice(fieldStart, endIndex));
+    }
+    parts = null;
+    fieldQuoted = false;
+  };
+
+  const pushRow = () => {
+    rows.push(row);
+    row = [];
+  };
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -814,40 +852,46 @@ function parseCsv(text) {
     if (inQuotes) {
       if (char === '"') {
         if (text[index + 1] === '"') {
-          field += '"';
+          if (!parts) parts = [];
+          parts.push(text.slice(fieldStart, index), '"');
           index += 1;
+          fieldStart = index + 1;
         } else {
+          if (!parts) parts = [];
+          parts.push(text.slice(fieldStart, index));
           inQuotes = false;
+          fieldStart = index + 1;
         }
-      } else {
-        field += char;
       }
       continue;
     }
 
-    if (char === '"') {
+    if (char === '"' && !fieldQuoted && index === fieldStart) {
       inQuotes = true;
+      fieldQuoted = true;
+      fieldStart = index + 1;
     } else if (char === ",") {
-      row.push(field);
-      field = "";
+      pushField(index);
+      fieldStart = index + 1;
     } else if (char === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
+      pushField(index);
+      pushRow();
+      fieldStart = index + 1;
     } else if (char === "\r") {
+      const endIndex = index;
       if (text[index + 1] === "\n") index += 1;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else {
-      field += char;
+      pushField(endIndex);
+      pushRow();
+      fieldStart = index + 1;
     }
   }
 
-  row.push(field);
-  rows.push(row);
+  if (inQuotes && parts) {
+    parts.push(text.slice(fieldStart));
+    fieldStart = text.length;
+  }
+  pushField(text.length);
+  pushRow();
   return rows.filter((cells) => cells.some((cell) => cell.trim() !== ""));
 }
 
@@ -937,8 +981,14 @@ function normalizeSender(value) {
 
 function setRecords(records) {
   state.records = records;
-  state.recordByKey = new Map(records.map((record) => [record.key, record]));
+  state.recordByKey = new Map();
+  records.forEach((record) => {
+    state.recordByKey.set(record.key, record);
+  });
+  state.filtered = records;
+  state.renderableFiltered = [];
   state.statsCache = null;
+  state.quickStatsCache = null;
 }
 
 function serializeRecord(record) {
@@ -981,6 +1031,9 @@ function addAssetFiles(files) {
     });
   });
 
+  if (accepted) {
+    invalidateAssetDerivedCaches();
+  }
   return accepted;
 }
 
@@ -1045,6 +1098,8 @@ function clearAssets() {
   revokeObjectUrls();
   state.assetIndex.clear();
   state.assetFiles.clear();
+  invalidateAssetDerivedCaches();
+  refreshRenderableRecords();
   els.assetStatus.textContent = "素材已经清空";
   renderAll();
 }
@@ -1053,16 +1108,20 @@ function applyFilters() {
   const terms = getSearchTerms();
   const day = els.dateInput.value;
   const selectedType = els.typeSelect.value;
+  const hasFilters = Boolean(terms.length || day || state.monthDayFilter || selectedType !== "all");
 
-  state.filtered = state.records.filter((record) => {
-    if (terms.length && !recordContainsTerms(record, terms)) return false;
-    if (day && record.dayKey !== day) return false;
-    if (state.monthDayFilter && record.monthDay !== state.monthDayFilter) return false;
-    if (selectedType !== "all" && record.type !== selectedType) return false;
-    return true;
-  });
+  state.filtered = hasFilters
+    ? state.records.filter((record) => {
+      if (terms.length && !recordContainsTerms(record, terms)) return false;
+      if (day && record.dayKey !== day) return false;
+      if (state.monthDayFilter && record.monthDay !== state.monthDayFilter) return false;
+      if (selectedType !== "all" && record.type !== selectedType) return false;
+      return true;
+    })
+    : state.records;
+  refreshRenderableRecords();
 
-  resetTimelineWindow(terms.length ? 0 : getRenderableFilteredRecords().length - 1);
+  resetTimelineWindow(terms.length ? 0 : state.renderableFiltered.length - 1);
   state.timelineStickBottom = !terms.length;
   updateFilterNote();
   renderAll();
@@ -1141,7 +1200,6 @@ function switchTab(tab) {
 }
 
 function renderAll() {
-  renderQuickStats();
   if (state.activeTab === "timeline") {
     renderTimeline();
   } else if (state.activeTab === "highlights") {
@@ -1151,23 +1209,71 @@ function renderAll() {
   } else if (state.activeTab === "interaction") {
     renderInteraction();
   }
+  renderQuickStats();
 }
 
 function renderQuickStats() {
-  const total = state.records.length;
-  const mediaRecords = state.records.filter((record) => MEDIA_TYPES.has(record.type) && record.src);
-  const matched = mediaRecords.filter((record) => Boolean(findAssetFor(record.src))).length;
-  const days = new Set(state.records.map((record) => record.dayKey).filter(Boolean)).size;
-  const matchedRate = formatMatchRate(matched, mediaRecords.length);
+  if (!state.quickStatsCache && state.activeTab === "timeline" && state.records.length > 20000) {
+    els.quickStats.replaceChildren(
+      makeMetricCell(formatNumber(state.records.length), "条消息"),
+      makeMetricCell("整理中", "小统计"),
+      makeMetricCell("稍等", "素材匹配"),
+      makeMetricCell("马上好", "聊天日"),
+    );
+    scheduleQuickStatsRender();
+    return;
+  }
 
+  const cells = getQuickStatsCells();
+  els.quickStats.replaceChildren(...cells.map(([value, label]) => makeMetricCell(value, label)));
+}
+
+function scheduleQuickStatsRender() {
+  if (state.quickStatsTimer) return;
+  const run = () => {
+    state.quickStatsTimer = 0;
+    const cells = getQuickStatsCells();
+    els.quickStats.replaceChildren(...cells.map(([value, label]) => makeMetricCell(value, label)));
+  };
+  if ("requestIdleCallback" in window) {
+    state.quickStatsTimer = window.requestIdleCallback(run, { timeout: 1200 });
+  } else {
+    state.quickStatsTimer = window.setTimeout(run, 120);
+  }
+}
+
+function getQuickStatsCells() {
+  if (
+    state.quickStatsCache &&
+    state.quickStatsCache.count === state.records.length &&
+    state.quickStatsCache.assetVersion === state.assetVersion
+  ) {
+    return state.quickStatsCache.cells;
+  }
+
+  const total = state.records.length;
+  let mediaCount = 0;
+  let matched = 0;
+  const days = new Set();
+  state.records.forEach((record) => {
+    if (record.dayKey) days.add(record.dayKey);
+    if (MEDIA_TYPES.has(record.type) && record.src) {
+      mediaCount += 1;
+      if (findAssetFor(record.src)) matched += 1;
+    }
+  });
   const cells = [
     [formatNumber(total), "条消息"],
-    [formatNumber(mediaRecords.length), "份媒体"],
-    [matchedRate, "素材匹配"],
-    [formatNumber(days), "有聊天的日子"],
+    [formatNumber(mediaCount), "份媒体"],
+    [formatMatchRate(matched, mediaCount), "素材匹配"],
+    [formatNumber(days.size), "有聊天的日子"],
   ];
-
-  els.quickStats.replaceChildren(...cells.map(([value, label]) => makeMetricCell(value, label)));
+  state.quickStatsCache = {
+    count: total,
+    assetVersion: state.assetVersion,
+    cells,
+  };
+  return cells;
 }
 
 function renderTimeline() {
@@ -1217,7 +1323,11 @@ function renderTimeline() {
 }
 
 function getRenderableFilteredRecords() {
-  return state.filtered.filter(shouldRenderRecord);
+  return state.renderableFiltered;
+}
+
+function refreshRenderableRecords() {
+  state.renderableFiltered = state.filtered.filter(shouldRenderRecord);
 }
 
 function shouldRenderRecord(record) {
