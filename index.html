@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>两个人的微信回忆</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+      <script>window.__COUPLE_STATIC_ENCRYPTED__ = true;</script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <p class="eyebrow">只属于我们</p>
+          <h1>两个人的微信回忆</h1>
+          <p class="privacy-line">把聊天慢慢放进来，在这台电脑里安静保存。</p>
+        </div>
+
+        <details class="top-actions import-menu" aria-label="放入回忆">
+          <summary class="tool-button primary import-trigger"><span>放</span>放入回忆</summary>
+          <div class="import-popover">
+            <input id="csvInput" class="visually-hidden" type="file" accept=".csv,text/csv" />
+            <label class="tool-button import-option primary" for="csvInput"><span>聊</span>聊天记录</label>
+
+            <input id="imageInput" class="visually-hidden" type="file" webkitdirectory directory multiple />
+            <label class="tool-button import-option" for="imageInput"><span>照</span>照片</label>
+
+            <input id="emojiInput" class="visually-hidden" type="file" webkitdirectory directory multiple />
+            <label class="tool-button import-option" for="emojiInput"><span>表</span>表情</label>
+
+            <input id="videoInput" class="visually-hidden" type="file" webkitdirectory directory multiple />
+            <label class="tool-button import-option subtle" for="videoInput"><span>影</span>视频</label>
+
+            <button id="clearAssetsBtn" class="tool-button import-option ghost" type="button"><span>清</span>清空素材</button>
+          </div>
+        </details>
+
+        <div id="cloudAccount" class="top-actions cloud-account" hidden>
+          <span id="cloudUserLabel">私密云端</span>
+          <a class="cloud-logout" href="/logout">退出</a>
+        </div>
+      </header>
+
+      <main class="content-grid">
+        <details id="memoryControls" class="control-drawer">
+          <summary class="control-summary">
+            <span>查找与设置</span>
+            <small>搜索、日期、称呼都在这里</small>
+          </summary>
+
+          <aside class="sidebar" aria-label="筛选和状态">
+            <section class="panel import-panel">
+              <h2>回忆匣</h2>
+              <div class="status-line" id="csvStatus">还没放入聊天记录</div>
+              <div class="status-line" id="assetStatus">照片和表情还没放进来</div>
+              <div class="status-line db-status" id="dbStatus">本地保存准备中</div>
+              <div class="metric-grid" id="quickStats">
+                <div>
+                  <strong>0</strong>
+                  <span>条消息</span>
+                </div>
+                <div>
+                  <strong>0</strong>
+                  <span>份媒体</span>
+                </div>
+                <div>
+                  <strong>0%</strong>
+                  <span>素材匹配</span>
+                </div>
+                <div>
+                  <strong>0</strong>
+                  <span>有聊天的日子</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel filter-panel">
+              <h2>找一段回忆</h2>
+              <div class="field-group search-field">
+                <label class="field-label" for="searchInput">关键词</label>
+                <input id="searchInput" class="text-input" type="search" placeholder="搜一句话、一个名字、一张图" autocomplete="off" />
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="dateInput">日期</label>
+                <input id="dateInput" class="text-input" type="date" />
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="typeSelect">类型</label>
+                <select id="typeSelect" class="text-input">
+                  <option value="all">全部</option>
+                  <option value="text">文本</option>
+                  <option value="image">图片</option>
+                  <option value="sticker">表情</option>
+                  <option value="voice">语音</option>
+                  <option value="video">视频</option>
+                  <option value="file">文件</option>
+                  <option value="location">位置</option>
+                </select>
+              </div>
+
+              <div class="filter-actions">
+                <div class="button-row">
+                  <button id="todayHistoryBtn" class="command-button" type="button">今天的往年</button>
+                  <button id="randomBtn" class="command-button" type="button">随便翻翻</button>
+                </div>
+                <button id="resetFiltersBtn" class="wide-button" type="button">回到全部</button>
+              </div>
+              <div id="activeFilterNote" class="filter-note" aria-live="polite"></div>
+            </section>
+
+            <section class="panel names-panel">
+              <h2>称呼</h2>
+              <label class="field-label" for="mineNameInput">我</label>
+              <input id="mineNameInput" class="text-input" type="text" value="我" />
+              <label class="field-label" for="partnerNameInput">对方</label>
+              <input id="partnerNameInput" class="text-input" type="text" value="乖乖" />
+            </section>
+          </aside>
+        </details>
+
+        <section class="workspace" aria-label="回忆工作区">
+          <nav class="tabs" aria-label="视图切换">
+            <button class="tab-button active" type="button" data-tab="timeline">聊天</button>
+            <button class="tab-button" type="button" data-tab="highlights">珍藏</button>
+            <button class="tab-button" type="button" data-tab="stats">小统计</button>
+            <button class="tab-button" type="button" data-tab="interaction">小纸条</button>
+          </nav>
+
+          <section id="timelineView" class="view" data-view="timeline">
+            <div class="view-toolbar chat-toolbar">
+              <div id="rangeInfo" class="range-info">把聊天记录放进来，就能慢慢翻</div>
+              <button id="scrollBottomBtn" class="pager-button mini scroll-bottom-btn" type="button" hidden>回到底部</button>
+            </div>
+            <div id="timelineList" class="timeline-list">
+              <div class="empty-state">
+                <h2>先把聊天记录放进来</h2>
+                <p>再补上照片和表情，回忆会自己长成原来的样子。</p>
+              </div>
+            </div>
+          </section>
+
+          <section id="highlightsView" class="view" data-view="highlights" hidden>
+            <div class="view-toolbar">
+              <div id="highlightInfo" class="range-info">收藏过的聊天会留在这里</div>
+              <button id="clearHighlightsBtn" class="pager-button" type="button">清空珍藏</button>
+            </div>
+            <div id="highlightList" class="highlight-list"></div>
+          </section>
+
+          <section id="statsView" class="view" data-view="stats" hidden>
+            <div class="stats-layout">
+              <div class="stat-block">
+                <h2>概览</h2>
+                <div id="overviewStats" class="overview-grid"></div>
+              </div>
+              <div class="stat-block optional-stat">
+                <h2>消息类型</h2>
+                <div id="typeStats" class="bar-list"></div>
+              </div>
+              <div class="stat-block wide">
+                <h2>高频词云</h2>
+                <div id="wordCloud" class="word-cloud"></div>
+              </div>
+              <div class="stat-block wide">
+                <h2>365 天聊天热力图</h2>
+                <div id="yearHeatmap" class="year-heatmap"></div>
+              </div>
+              <div class="stat-block wide optional-stat">
+                <h2>月份热度</h2>
+                <div id="monthStats" class="month-bars"></div>
+              </div>
+              <div class="stat-block wide optional-stat">
+                <h2>一天中的聊天节奏</h2>
+                <div id="hourStats" class="hour-bars"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="interactionView" class="view" data-view="interaction" hidden>
+            <div class="interaction-layout">
+              <section class="stat-block">
+                <h2>双人便利贴</h2>
+                <label class="field-label" for="noteAuthorInput">署名</label>
+                <input id="noteAuthorInput" class="text-input" type="text" value="我" />
+                <label class="field-label" for="noteInput">留言</label>
+                <textarea id="noteInput" class="text-input note-input" placeholder="写一句今天想留给对方的话"></textarea>
+                <button id="addNoteBtn" class="wide-button" type="button">贴上去</button>
+                <div id="noteBoard" class="note-board"></div>
+              </section>
+
+              <section class="stat-block">
+                <h2>纪念日倒计时</h2>
+                <label class="field-label" for="anniversaryNameInput">纪念日</label>
+                <input id="anniversaryNameInput" class="text-input" type="text" placeholder="例如：在一起" />
+                <label class="field-label" for="anniversaryDateInput">日期</label>
+                <input id="anniversaryDateInput" class="text-input" type="date" />
+                <button id="addAnniversaryBtn" class="wide-button" type="button">加入倒计时</button>
+                <div id="anniversaryList" class="anniversary-list"></div>
+              </section>
+            </div>
+          </section>
+
+        </section>
+      </main>
+    </div>
+
+    <dialog id="lightbox" class="lightbox">
+      <button id="closeLightboxBtn" class="lightbox-close" type="button">关闭</button>
+      <div id="lightboxBody" class="lightbox-body"></div>
+      <div id="lightboxCaption" class="lightbox-caption"></div>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "format": "couple-memory-static-aes-gcm",
+  "createdAt": "2026-05-08T11:58:28.576Z",
+  "kdf": {
+    "name": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 250000
+  },
+  "data": {
+    "type": "text/csv",
+    "path": "encrypted-export/data/chat.csv.enc",
+    "iv": "cIiqTxyVULCnTQSU",
+    "size": 39998854
+  },
+  "users": [
+    {
+      "id": "me",
+      "displayName": "我",
+      "partnerName": "乖乖",
+      "perspective": "owner",
+      "kdf": {
+        "salt": "Vvl9I1mh0GqNJeHG2IrwOA",
+        "iterations": 250000
+      },
+      "wrappedKey": {
+        "iv": "I0PEL-9dO8IG54e2",
+        "ciphertext": "zKhJvEi54vg0tvtoQV3os963dS3afdOVOhBPKtuEtxo3XzdTkK2Kxf0gj674CE-a"
+      }
+    },
+    {
+      "id": "partner",
+      "displayName": "乖乖",
+      "partnerName": "我",
+      "perspective": "partner",
+      "kdf": {
+        "salt": "kpwPWIUKUND1WQ677Qxscg",
+        "iterations": 250000
+      },
+      "wrappedKey": {
+        "iv": "uuRED3tGb3WOGgVv",
+        "ciphertext": "Cn3uwyDff56YZrqBNSFjjnwrE1hMT0sZ1yg_DWmep4WIGcjHy1_qXgjmYr-25qPO"
+      }
+    }
+  ],
+  "assets": [],
+  "stats": {
+    "csvBytes": 39998854,
+    "sourceAssets": 0,
+    "encryptedAssets": 0,
+    "encryptedAssetBytes": 0
+  }
+}
