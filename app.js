@@ -386,7 +386,8 @@ async function unwrapStaticContentKey(user, password) {
 
 async function decryptStaticText(entry) {
   const bytes = await decryptStaticEntry(entry);
-  return new TextDecoder("utf-8").decode(bytes);
+  const textBytes = entry.encoding === "gzip" ? await decompressGzipBytes(bytes) : bytes;
+  return new TextDecoder("utf-8").decode(textBytes);
 }
 
 async function decryptStaticEntry(entry) {
@@ -404,6 +405,14 @@ async function decryptStaticEntry(entry) {
 function getStaticEntryUrl(entry) {
   const version = state.staticManifest?.createdAt || entry.iv || Date.now();
   return `./${entry.path}?v=${encodeURIComponent(version)}`;
+}
+
+async function decompressGzipBytes(bytes) {
+  if (!("DecompressionStream" in window)) {
+    throw new Error("This browser cannot decompress the encrypted export.");
+  }
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 function loadStaticAssets(assets) {

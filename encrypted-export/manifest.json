@@ -1,7 +1,7 @@
 {
   "version": 1,
   "format": "couple-memory-static-aes-gcm",
-  "createdAt": "2026-05-08T13:35:17.509Z",
+  "createdAt": "2026-05-08T13:43:37.607Z",
   "kdf": {
     "name": "PBKDF2",
     "hash": "SHA-256",
@@ -9,9 +9,11 @@
   },
   "data": {
     "type": "text/csv",
+    "encoding": "gzip",
     "path": "encrypted-export/data/chat.csv.enc",
-    "iv": "8XHjc547Tqq-qRD_",
-    "size": 39998854
+    "iv": "-AMWfFNUcgEv9v4v",
+    "size": 5741631,
+    "originalSize": 39998854
   },
   "users": [
     {
@@ -20,12 +22,12 @@
       "partnerName": "乖乖",
       "perspective": "owner",
       "kdf": {
-        "salt": "qJMhHkGDmKDH1bYojOpo7g",
+        "salt": "GxPdKU5Lj259oMV_WEZDVQ",
         "iterations": 100000
       },
       "wrappedKey": {
-        "iv": "yB0lDXBpQyObLvS-",
-        "ciphertext": "NUd5pMQfPQ4fJ5sD98jpyaLXHIOgEFmeDnB2tzbcrG3iI748FX8SEc-SLNBcCd5j"
+        "iv": "rTPpynWyM7LN9G2r",
+        "ciphertext": "RTkujjPhXxAQ6eMbrv08LYrf36Uj39k9I51oARVN7aN-HAklREpcO2HHqw2Y0ben"
       }
     },
     {
@@ -34,18 +36,19 @@
       "partnerName": "瓜瓜",
       "perspective": "partner",
       "kdf": {
-        "salt": "zc4jMvZw092axtXSLe5r3A",
+        "salt": "37I-ZZALz9O1Vfgblf8RvA",
         "iterations": 100000
       },
       "wrappedKey": {
-        "iv": "W0U9X-WFkSMrxBXG",
-        "ciphertext": "FmriLWBAu0keQwc0qJb6UV6gNQh9kbHgvElp8H4a3j4tB29gebEDLvLuI5Ohdl4p"
+        "iv": "A8lcjnHKZ1jTr_4e",
+        "ciphertext": "E8vCP0nnuNoqKKRwwE-zMKx0dW8Fak66z7XLJC7syXDqT-i0fcj-I5DQaK5No1G5"
       }
     }
   ],
   "assets": [],
   "stats": {
     "csvBytes": 39998854,
+    "encryptedCsvBytes": 5741647,
     "sourceAssets": 0,
     "encryptedAssets": 0,
     "encryptedAssetBytes": 0
