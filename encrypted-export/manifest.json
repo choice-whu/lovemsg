@@ -1,7 +1,7 @@
 {
   "version": 1,
   "format": "couple-memory-static-aes-gcm",
-  "createdAt": "2026-05-08T13:43:37.607Z",
+  "createdAt": "2026-05-08T13:52:11.310Z",
   "kdf": {
     "name": "PBKDF2",
     "hash": "SHA-256",
@@ -11,9 +11,18 @@
     "type": "text/csv",
     "encoding": "gzip",
     "path": "encrypted-export/data/chat.csv.enc",
-    "iv": "-AMWfFNUcgEv9v4v",
+    "iv": "Vj69iuVNT-k3-zvZ",
     "size": 5741631,
     "originalSize": 39998854
+  },
+  "preview": {
+    "type": "text/csv",
+    "encoding": "gzip",
+    "path": "encrypted-export/data/chat-preview.csv.enc",
+    "iv": "KYH1ZlD2B5oCwWk1",
+    "size": 112126,
+    "originalSize": 860248,
+    "rows": 2400
   },
   "users": [
     {
@@ -22,12 +31,12 @@
       "partnerName": "乖乖",
       "perspective": "owner",
       "kdf": {
-        "salt": "GxPdKU5Lj259oMV_WEZDVQ",
+        "salt": "d_7QrMDfej3cRA2Tqb9fHw",
         "iterations": 100000
       },
       "wrappedKey": {
-        "iv": "rTPpynWyM7LN9G2r",
-        "ciphertext": "RTkujjPhXxAQ6eMbrv08LYrf36Uj39k9I51oARVN7aN-HAklREpcO2HHqw2Y0ben"
+        "iv": "94RYBqiYIzQn0Ndy",
+        "ciphertext": "SD6gKfOowpUGW-oWZPz9iaQ6tBWz-vPxq3rm4FnENQu6UKCBJWdPGLDKiaNwPzjD"
       }
     },
     {
@@ -36,12 +45,12 @@
       "partnerName": "瓜瓜",
       "perspective": "partner",
       "kdf": {
-        "salt": "37I-ZZALz9O1Vfgblf8RvA",
+        "salt": "OpzjzBGNzbwJUasnjvHU0w",
         "iterations": 100000
       },
       "wrappedKey": {
-        "iv": "A8lcjnHKZ1jTr_4e",
-        "ciphertext": "E8vCP0nnuNoqKKRwwE-zMKx0dW8Fak66z7XLJC7syXDqT-i0fcj-I5DQaK5No1G5"
+        "iv": "jMfva28E3qext2P8",
+        "ciphertext": "KyXl-YillUqxoowdMwZzKvuySQR5FtotbGexqXoxHR54pqk5mGhImblst436oFE1"
       }
     }
   ],
@@ -49,6 +58,8 @@
   "stats": {
     "csvBytes": 39998854,
     "encryptedCsvBytes": 5741647,
+    "previewBytes": 860248,
+    "encryptedPreviewBytes": 112142,
     "sourceAssets": 0,
     "encryptedAssets": 0,
     "encryptedAssetBytes": 0

@@ -129,6 +129,8 @@ const state = {
   staticManifest: null,
   staticUser: null,
   staticKey: null,
+  staticPreviewActive: false,
+  staticFullLoadPromise: null,
   staticAssetUrls: new Map(),
 };
 
@@ -331,39 +333,76 @@ async function unlockStaticExport(event) {
 
   els.csvStatus.textContent = "正在本地解密聊天记录";
   els.assetStatus.textContent = "正在准备加密素材索引";
+  const loadVersion = state.dataVersion + 1;
+  state.dataVersion = loadVersion;
   await nextFrame();
 
   try {
     const contentKey = await unwrapStaticContentKey(user, password);
     state.staticKey = await crypto.subtle.importKey("raw", contentKey, "AES-GCM", false, ["decrypt"]);
-    els.csvStatus.textContent = "正在整理聊天记录";
-    await nextFrame();
-    const csvText = await decryptStaticText(manifest.data);
-    els.csvStatus.textContent = "正在生成聊天气泡";
-    await nextFrame();
-    const records = normalizeRows(parseCsv(csvText)).map((record) => applyCloudPerspective(record, user));
     loadStaticAssets(manifest.assets || []);
-    setRecords(records);
     state.staticUser = user;
-    els.mineNameInput.value = user.displayName || "我";
-    els.partnerNameInput.value = user.partnerName || "对方";
-    els.noteAuthorInput.value = user.displayName || "我";
-    els.mineNameInput.readOnly = true;
-    els.partnerNameInput.readOnly = true;
-    if (els.cloudUserLabel) {
-      els.cloudUserLabel.textContent = `${user.displayName || "我们"} · 加密静态版`;
+    applyStaticIdentity(user);
+
+    if (manifest.preview) {
+      await loadStaticPreview(manifest, user, loadVersion);
+      state.staticFullLoadPromise = loadStaticFullExport(manifest, user, loadVersion).catch((fullError) => {
+        console.error(fullError);
+        if (loadVersion === state.dataVersion) {
+          els.csvStatus.textContent = `已先打开最近 ${formatNumber(state.records.length)} 条，完整记录稍后再试`;
+        }
+      });
+    } else {
+      await loadStaticFullExport(manifest, user, loadVersion);
     }
-    els.csvStatus.textContent = `加密记录已打开，${formatNumber(records.length)} 条消息`;
-    els.assetStatus.textContent = `加密素材 ${formatNumber(state.assetFiles.size)} 个，滚到哪里解密到哪里`;
-    els.dbStatus.textContent = "GitHub 只保存密文，密码没有离开浏览器";
-    applyFilters();
-    switchTab("timeline");
   } catch (error) {
     console.error(error);
     state.staticKey = null;
     showStaticUnlockPanel("密码不对，或者浏览器拿到了旧缓存。刷新后再试一下。");
     els.csvStatus.textContent = "没有解锁成功";
   }
+}
+
+function applyStaticIdentity(user) {
+  els.mineNameInput.value = user.displayName || "我";
+  els.partnerNameInput.value = user.partnerName || "对方";
+  els.noteAuthorInput.value = user.displayName || "我";
+  els.mineNameInput.readOnly = true;
+  els.partnerNameInput.readOnly = true;
+  if (els.cloudUserLabel) {
+    els.cloudUserLabel.textContent = `${user.displayName || "我们"} · 加密静态版`;
+  }
+  els.assetStatus.textContent = `加密素材 ${formatNumber(state.assetFiles.size)} 个，滚到哪里解密到哪里`;
+  els.dbStatus.textContent = "GitHub 只保存密文，密码没有离开浏览器";
+}
+
+async function loadStaticPreview(manifest, user, loadVersion) {
+  els.csvStatus.textContent = "正在先打开最近聊天";
+  await nextFrame();
+  const csvText = await decryptStaticText(manifest.preview);
+  if (loadVersion !== state.dataVersion) return;
+  const records = normalizeRows(parseCsv(csvText)).map((record) => applyCloudPerspective(record, user));
+  setRecords(records);
+  state.staticPreviewActive = true;
+  els.csvStatus.textContent = `先打开最近 ${formatNumber(records.length)} 条，完整记录继续加载中`;
+  applyFilters();
+  switchTab("timeline");
+}
+
+async function loadStaticFullExport(manifest, user, loadVersion) {
+  await nextFrame();
+  const csvText = await decryptStaticText(manifest.data);
+  if (loadVersion !== state.dataVersion) return;
+  els.csvStatus.textContent = "正在整理完整聊天记录";
+  await nextFrame();
+  const records = normalizeRows(parseCsv(csvText)).map((record) => applyCloudPerspective(record, user));
+  if (loadVersion !== state.dataVersion) return;
+  setRecords(records);
+  state.staticPreviewActive = false;
+  els.csvStatus.textContent = `完整记录已打开，${formatNumber(records.length)} 条消息`;
+  state.timelineStickBottom = true;
+  applyFilters();
+  switchTab("timeline");
 }
 
 async function unwrapStaticContentKey(user, password) {
