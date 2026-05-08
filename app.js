@@ -295,7 +295,7 @@ function showStaticUnlockPanel(message = "") {
     <div class="unlock-face" aria-hidden="true"></div>
     <h2>输入私密密码</h2>
     <p>聊天记录和照片都已加密放在 GitHub Pages 上，密码只在这个浏览器里用来解锁。</p>
-    <label class="field-label" for="staticUserSelect">视角</label>
+    <label class="field-label" for="staticUserSelect">账号</label>
     <select id="staticUserSelect" class="text-input" ${users.length ? "" : "disabled"}>
       ${users.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(getStaticUserOptionLabel(user))}</option>`).join("")}
     </select>
@@ -309,7 +309,7 @@ function showStaticUnlockPanel(message = "") {
 }
 
 function getStaticUserOptionLabel(user) {
-  return user.perspective === "partner" ? "乖乖视角" : "我的视角";
+  return user.id || (user.perspective === "partner" ? "nicestrange" : "choice");
 }
 
 async function unlockStaticExport(event) {
@@ -321,7 +321,7 @@ async function unlockStaticExport(event) {
   const password = document.querySelector("#staticPasswordInput")?.value || "";
   const user = (manifest.users || []).find((item) => item.id === accountId);
   if (!user || !password) {
-    showStaticUnlockPanel("先选一个视角，再输入密码。");
+    showStaticUnlockPanel("先选一个账号，再输入密码。");
     return;
   }
 

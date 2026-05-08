@@ -1,7 +1,7 @@
 {
   "version": 1,
   "format": "couple-memory-static-aes-gcm",
-  "createdAt": "2026-05-08T12:41:51.100Z",
+  "createdAt": "2026-05-08T13:03:45.553Z",
   "kdf": {
     "name": "PBKDF2",
     "hash": "SHA-256",
@@ -10,36 +10,36 @@
   "data": {
     "type": "text/csv",
     "path": "encrypted-export/data/chat.csv.enc",
-    "iv": "7ziAUdvg3sfo5nyV",
+    "iv": "024tiiUqeTjUNK4l",
     "size": 39998854
   },
   "users": [
     {
-      "id": "me",
+      "id": "choice",
       "displayName": "我",
       "partnerName": "乖乖",
       "perspective": "owner",
       "kdf": {
-        "salt": "-TQov_kLfyIXau8XJ3bDxA",
+        "salt": "rh4HOj8lHFC47fDCmhrM0g",
         "iterations": 250000
       },
       "wrappedKey": {
-        "iv": "Wly6aU7lHNoWvgtC",
-        "ciphertext": "mpxIa97yRttMHTBT7KODnKsOYf0FFd3bL8iDJO-LXpE6DoG-_ho1COV600FddXEg"
+        "iv": "Q2bDGk9yxY1Dqdou",
+        "ciphertext": "lewVpI5ozxKDBFWmbMVKfxPQ75CwbbaKqXyX4umaLqeLQ4Qt4veH56Toww5Rw2P7"
       }
     },
     {
-      "id": "partner",
+      "id": "nicestrange",
       "displayName": "我",
       "partnerName": "瓜瓜",
       "perspective": "partner",
       "kdf": {
-        "salt": "0tCIoe7v_heoEEAorm1cOg",
+        "salt": "d7x_IjGKetjHhNlDgW5BUg",
         "iterations": 250000
       },
       "wrappedKey": {
-        "iv": "aPa4EfJ0N-sElwWl",
-        "ciphertext": "twqkyTmqX3KPHCU9p5R_Mi-X4At7uHKAskIVoKYAF1hySmXSOGEwGEC1YdxA1yDX"
+        "iv": "Ina4Z403lQxqEcFu",
+        "ciphertext": "UBQszKD9Ac7F1krdVL3Bge3tgEU9Qsa1B_M5NjJFmkeCEs9qYJEY8gqHdQk7OGoF"
       }
     }
   ],
