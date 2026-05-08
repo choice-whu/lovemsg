@@ -353,7 +353,7 @@ async function unlockStaticExport(event) {
   } catch (error) {
     console.error(error);
     state.staticKey = null;
-    showStaticUnlockPanel("密码不对，或者加密包已经损坏。");
+    showStaticUnlockPanel("密码不对，或者浏览器拿到了旧缓存。刷新后再试一下。");
     els.csvStatus.textContent = "没有解锁成功";
   }
 }
@@ -383,7 +383,7 @@ async function decryptStaticText(entry) {
 
 async function decryptStaticEntry(entry) {
   if (!state.staticKey) throw new Error("Missing static key");
-  const response = await fetch(`./${entry.path}`, { cache: "force-cache" });
+  const response = await fetch(getStaticEntryUrl(entry), { cache: "no-store" });
   if (!response.ok) throw new Error(`Cannot load encrypted entry: ${entry.path}`);
   const encrypted = await response.arrayBuffer();
   return crypto.subtle.decrypt(
@@ -391,6 +391,11 @@ async function decryptStaticEntry(entry) {
     state.staticKey,
     encrypted,
   );
+}
+
+function getStaticEntryUrl(entry) {
+  const version = state.staticManifest?.createdAt || entry.iv || Date.now();
+  return `./${entry.path}?v=${encodeURIComponent(version)}`;
 }
 
 function loadStaticAssets(assets) {
